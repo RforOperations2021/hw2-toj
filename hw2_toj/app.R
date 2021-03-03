@@ -5,6 +5,7 @@ library(shinydashboard)
 library(tidyverse)
 library(plotly)
 library(DT)
+library(scales) #helps to format the numbers in the value/info boxes
 
 
 
@@ -54,11 +55,15 @@ body <- dashboardBody(tabItems(
           # Input and Value Boxes ----------------------------------------------
           fluidRow(
             infoBoxOutput("allocation")
-            #valueBoxOutput()
            ),
           
-        dataTableOutput(outputId = "state_table")
-          
+          #creating a tabset panel to display the data table and the corresponding time series chart
+          tabsetPanel(type = "tabs",
+                      tabPanel("Data Table", dataTableOutput(outputId = "state_table")),
+                      
+                      #timeseries plot of vaccination allocation over time
+                      tabPanel("Vaccine Allocation Over Time",  plotlyOutput(outputId = "time.series"))
+                      ),
           
         ),
   
@@ -97,13 +102,25 @@ server <- function(input, output) {
    output$allocation <-
     renderInfoBox({
       
-      infoBox("Amount of Vaccine Allocated", value = nrow(state_alloc()))
+      #sums the total number of vaccines received to-date by a jurisdiction
+      alloc.sum <- sum(state_alloc()$First.Dose.Allocations)
+
+      infoBox("Total Amount of Vaccine Allocated To-Date", value = alloc.sum)
     })
    
    #Display data table of vaccines allocation for the selected state-------------------------------------------
    output$state_table <- DT::renderDataTable({
      DT::datatable(data = state_alloc(),
                    rownames = FALSE)
+   })
+   
+   output$time.series <- renderPlotly({
+     
+     #create the time series plot
+     ggplot(state_alloc(), aes(x=Week.of.Allocations, y=First.Dose.Allocations)) +
+      geom_point(color = "blue") +
+      geom_line(group = 1)
+     
    })
   }
 
