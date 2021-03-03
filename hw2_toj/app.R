@@ -9,6 +9,7 @@ library(scales) #helps to format the numbers in the value/info boxes
 
 
 
+
 #Loading in the relevant datasets ---------------------------------
 
 #Covid Vaccination data by state
@@ -19,6 +20,10 @@ pf.alloc <- read.csv("pfizervaccineallocation.csv")
 
 #Editing the column names of the pf.alloc dataset
 colnames(pf.alloc) <- c("Jurisdiction", "Week.of.Allocations", "First.Dose.Allocations", "Second.Dose.Allocations")
+
+#using lubridate to change the date values for the week of allocation
+pf.alloc <- pf.alloc %>% 
+  mutate(Week.of.Allocations = lubridate::mdy(Week.of.Allocations))
 
 
 header <- dashboardHeader(title = "COVID-19 Vaccine Distribution Tracker"
@@ -116,10 +121,13 @@ server <- function(input, output) {
    
    output$time.series <- renderPlotly({
      
+     
      #create the time series plot
      ggplot(state_alloc(), aes(x=Week.of.Allocations, y=First.Dose.Allocations)) +
       geom_point(color = "blue") +
-      geom_line(group = 1)
+      geom_line(group = 1) +
+      xlab("Month of Allocation") +
+      ylab("Number of First Dose Allocations")
      
    })
   }
