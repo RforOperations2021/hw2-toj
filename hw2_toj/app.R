@@ -51,8 +51,15 @@ body <- dashboardBody(tabItems(
       
           #Selects the state to find information about (to be used to filter the data)
           selectInput(inputId = "state",
-                      label = "Select a state",
+                      label = "Select a state to analyze for all of the dashboard tabs:",
                       choices = pf.alloc$Jurisdiction),
+          
+          #only displays time series data for the date range requested
+          dateRangeInput("dates_alloc", label = "Select a Date Range:",
+                                        start = "2020-12-14",
+                                        end = "2021-03-01",
+                                        format = "yyyy-mm-dd",
+                                        separator = "-"),
           
           
           #For the supplied state, display the % of vaccines delivered that are used
@@ -91,8 +98,12 @@ body <- dashboardBody(tabItems(
   # Vaccine Administration Page ----------------------------------------------
   tabItem("admin",
           
-     infoBoxOutput("per_admin")
-    
+          
+     infoBoxOutput("per_admin"),
+     
+     
+     
+     plotlyOutput("admin_dist")
   )
   
   )
@@ -109,7 +120,7 @@ server <- function(input, output) {
     filter(pf.alloc, Jurisdiction %in% input$state)
   })
   
-  #Creates a subset of the delivery and administraion data by state----------
+  #Creates a subset of the delivery and administration data by state----------
   state_del_admin <- reactive({
     req(input$state)
     filter(covid.vac, State.Territory.Federal.Entity %in% input$state)
@@ -121,7 +132,7 @@ server <- function(input, output) {
       #sums the total number of vaccines received to-date by a jurisdiction
       alloc.sum <- sum(state_alloc()$First.Dose.Allocations)
 
-      infoBox("Total Amount of Vaccine Allocated To-Date", value = alloc.sum)
+      infoBox("Total Amount of Vaccine Allocated To-Date", value = alloc.sum, color = )
     })
    
    #Display data table of vaccines allocation for the selected state-------------------------------------------
@@ -138,7 +149,9 @@ server <- function(input, output) {
       geom_point(color = "blue") +
       geom_line(group = 1) +
       xlab("Month of Allocation") +
-      ylab("Number of First Dose Allocations")
+      ylab("Number of First Dose Allocations") +
+      xlim(input$dates_alloc[1], input$dates_alloc[2]) +
+      ylim(0, max(state_alloc()$First.Dose.Allocations))
      
    })
    
@@ -154,8 +167,15 @@ server <- function(input, output) {
      num_del <- sum(state_del_admin()$Total.Doses.Delivered)
      num_admin <- sum(state_del_admin()$Total.Doses.Administered.by.State.where.Administered)
      per_admin <- round(num_admin/num_del * 100, digits = 2)
-     infoBox("Percent of Delivered Vaccines Administered", value = per_admin)
+     infoBox("Percent of Delivered Vaccines Administered", value = per_admin, color = "orange")
    })
+   
+   # output$admin_dist <- renderPlotly({
+   #   ggplot(state_del_admin(), aes(x =  ,
+   #                                 y=state_del_admin()$Total.Doses.Administered.by.State.where.Administered)
+   #     
+   #   )
+   # })
 }
 
 
