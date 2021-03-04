@@ -79,16 +79,21 @@ body <- dashboardBody(tabItems(
           radioButtons(inputId = "del.met",
                        label = "Pick a Delivery Metric:",
                        choices = c("Total Number Delivered", "Doses Delivered by 100k")
-          )
+          ),
           
-    
-  )
+    infoBoxOutput("del"),
+    infoBoxOutput("alloc_del")
+  ),
   
   
   
   
   # Vaccine Administration Page ----------------------------------------------
-
+  tabItem("admin",
+          
+     infoBoxOutput("per_admin")
+    
+  )
   
   )
 )
@@ -102,6 +107,12 @@ server <- function(input, output) {
   state_alloc <- reactive({
     req(input$state)
     filter(pf.alloc, Jurisdiction %in% input$state)
+  })
+  
+  #Creates a subset of the delivery and administraion data by state----------
+  state_del_admin <- reactive({
+    req(input$state)
+    filter(covid.vac, State.Territory.Federal.Entity %in% input$state)
   })
   
    output$allocation <-
@@ -130,6 +141,22 @@ server <- function(input, output) {
       ylab("Number of First Dose Allocations")
      
    })
-  }
+   
+   output$del <- renderInfoBox({
+     infoBox("Number of Vaccines Delivered To-Date")
+   })
+   
+   output$alloc_del <- renderInfoBox({
+     infoBox("Percent Allocation Delivered")
+   })
+   
+   output$per_admin <- renderInfoBox({
+     num_del <- sum(state_del_admin()$Total.Doses.Delivered)
+     num_admin <- sum(state_del_admin()$Total.Doses.Administered.by.State.where.Administered)
+     per_admin <- round(num_admin/num_del * 100, digits = 2)
+     infoBox("Percent of Delivered Vaccines Administered", value = per_admin)
+   })
+}
+
 
 shinyApp(ui, server)
