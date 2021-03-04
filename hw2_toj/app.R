@@ -26,7 +26,8 @@ pf.alloc <- pf.alloc %>%
   mutate(Week.of.Allocations = lubridate::mdy(Week.of.Allocations))
 
 
-header <- dashboardHeader(title = "COVID-19 Vaccine Distribution Tracker"
+header <- dashboardHeader(title = "COVID-19 Vaccine Distribution Tracker",
+                          titleWidth = 350
 
     
       
@@ -51,16 +52,16 @@ body <- dashboardBody(tabItems(
       
           #Selects the state to find information about (to be used to filter the data)
           selectInput(inputId = "state",
-                      label = "Select a state to analyze for all of the dashboard tabs:",
+                      label = "Select a state:",
                       choices = pf.alloc$Jurisdiction),
           
+         
           #only displays time series data for the date range requested
-          dateRangeInput("dates_alloc", label = "Select a Date Range:",
-                                        start = "2020-12-14",
-                                        end = "2021-03-01",
-                                        format = "yyyy-mm-dd",
-                                        separator = "-"),
-          
+          dateRangeInput("dates_alloc", label = "Select a Date Range for Time Series Plot:",
+                         start = "2020-12-14",
+                         end = "2021-03-01",
+                         format = "yyyy-mm-dd",
+                         separator = "-"),
           
           #For the supplied state, display the % of vaccines delivered that are used
   
@@ -97,13 +98,23 @@ body <- dashboardBody(tabItems(
   
   # Vaccine Administration Page ----------------------------------------------
   tabItem("admin",
+      
+          selectInput("state_select",
+                      "Pick 2 States:",
+                      choices = covid.vac$State.Territory.Federal.Entity,
+                      multiple = TRUE,
+                      selectize = TRUE,
+                      selected = c("Maryland", "Virginia")),
           
+          plotlyOutput("admin_dist"),
           
-     infoBoxOutput("per_admin"),
+     #infoBoxOutput("per_admin"),
      
+     dataTableOutput("state_compare")
      
+    
      
-     plotlyOutput("admin_dist")
+    
   )
   
   )
@@ -170,12 +181,53 @@ server <- function(input, output) {
      infoBox("Percent of Delivered Vaccines Administered", value = per_admin, color = "orange")
    })
    
-   # output$admin_dist <- renderPlotly({
-   #   ggplot(state_del_admin(), aes(x =  ,
-   #                                 y=state_del_admin()$Total.Doses.Administered.by.State.where.Administered)
-   #     
-   #   )
-   # })
+   
+   #Used to create a separate dataset that summarizes data for 2 states
+   state_compare <- reactive({
+     filter(covid.vac, State.Territory.Federal.Entity %in% input$state_select)
+   })
+     
+   
+   output$state_compare<- DT::renderDataTable({
+     
+     #editing the column names
+     
+     DT::datatable(data = state_compare() %>% 
+                          select(State.Territory.Federal.Entity,
+                                Total.Doses.Administered.by.State.where.Administered,
+                                 Doses.Administered.per.100k.by.State.where.Administered,
+                                 X18..Doses.Administered.by.State.where.Administered,
+                                 People.with.1..Doses.by.State.of.Residence,
+                                 People.with.2.Doses.by.State.of.Residence),
+                   rownames = FALSE)
+   })
+   
+   output$admin_dist <- renderPlotly({
+
+     #filters for total administration data for the first state selected
+     num_admin_state_1 <- state_compare() %>%
+       filter(State.Territory.Federal.Entity == input$state_select[1]) %>%
+       select(Total.Doses.Administered.by.State.where.Administered)
+
+     num_admin_state_2 <- state_compare() %>%
+       filter(State.Territory.Federal.Entity == input$state_select[2]) %>%
+       select(Total.Doses.Administered.by.State.where.Administered)
+
+     num_admin_compare <- c(num_admin_state_1, num_admin_state_2)
+
+     ggplot(state_compare(), aes(x = State.Territory.Federal.Entity,
+                                 y = num_admin_compare, 
+                                 fill = State.Territory.Federal.Entity)) +
+     geom_bar(stat = "identity")  +
+     xlab("States") +
+     ylab("Number of Vaccines Administered") +
+       
+    #removes the legend from the plot
+     theme(legend.position = "none")
+       
+
+
+   })
 }
 
 
