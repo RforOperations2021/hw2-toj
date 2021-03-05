@@ -99,19 +99,13 @@ body <- dashboardBody(tabItems(
                       label = "Select a state or territory:",
                       choices = covid.vac$State.Territory.Federal.Entity),
           
+          infoBoxOutput("tot_del"),
           
-          # #Selects the delivery metrics the user would want to see
-          # radioButtons(inputId = "del.met",
-          #              label = "Pick a Delivery Metric:",
-          #              choices = c("Total Number Delivered", "Doses Delivered by 100k")
-          # ),
           
-          plotlyOutput("deliveryPlot"),
+          #plotlyOutput("deliveryPlot")
           
-          dataTableOutput("del_table")
-          # 
-          # infoBoxOutput("del"),
-          # infoBoxOutput("alloc_del")
+          # dataTableOutput("del_table")
+         
   ),
   
   
@@ -247,14 +241,15 @@ server <- function(input, output) {
                             Doses.Delivered.per.100K),
                    rownames = FALSE) 
    })
-   # 
-   # output$del <- renderInfoBox({
-   #   infoBox("Number of Vaccines Delivered To-Date")
-   # })
-   # 
-   # output$alloc_del <- renderInfoBox({
-   #   infoBox("Percent Allocation Delivered")
-   # })
+    
+    #info box that delays the total number of vaccines delivered for the state selected
+     output$tot_del <- renderInfoBox({
+       
+       tot_del <- state_del_admin()$Total.Doses.Delivered
+       tot_del <- prettyNum(tot_del, big.mark = ",")
+       infoBox("Total Number of Vaccines Delivered To-Date", value = tot_del)
+      })
+ 
    
    output$per_admin_state_1 <- renderInfoBox({
      
