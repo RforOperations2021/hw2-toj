@@ -53,6 +53,13 @@ body <- dashboardBody(tabItems(
   # Overview Page ----------------------------------------------
   tabItem("overview",
       
+          #Adds some introductory text to the overview page
+          htmlOutput("welcome"),
+          
+          #creating some space between the welcome message and the select input
+          br(), br(),
+          
+          
           #Selects the state to find information about (to be used to filter the data)
           selectInput(inputId = "state",
                       label = "Select a state:",
@@ -171,6 +178,18 @@ server <- function(input, output) {
     
   })
   
+  
+
+  output$welcome <- renderUI ({ HTML("Welcome to the COVID-19 Vaccine Distribution Tracker! 
+                                     <br/> <br/> There are three different tabs that you can look at:
+                                     Vaccine Allocation data (for the Pfizer Vaccine), Vaccine Delivery data, and
+                                      Vaccine Administration data.
+                                      <br/> <br/> Click on any tab to get started!")
+                                      
+                                      
+                                })
+  
+  
    output$allocation <-
     renderInfoBox({
       
@@ -208,6 +227,8 @@ server <- function(input, output) {
    
    output$deliveryPlot <- renderPlotly({
     
+     #mean number of total deliveries
+     del.mean <- mean(covid.vac$Total.Doses.Delivered)
      
      ggplotly(
        ggplot(covid.vac, aes(x = Total.Doses.Delivered, 
