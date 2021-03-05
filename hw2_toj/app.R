@@ -86,14 +86,25 @@ body <- dashboardBody(tabItems(
   # Vaccine Delivery Page ----------------------------------------------
   tabItem("delivery",
           
-          #Selects the delivery metrics the user would want to see
-          radioButtons(inputId = "del.met",
-                       label = "Pick a Delivery Metric:",
-                       choices = c("Total Number Delivered", "Doses Delivered by 100k")
-          ),
+         
+          #Selects the state to find information about (to be used to filter the data)
+          selectInput(inputId = "state_del",
+                      label = "Select a state or territory:",
+                      choices = covid.vac$State.Territory.Federal.Entity),
           
-          infoBoxOutput("del"),
-          infoBoxOutput("alloc_del")
+          
+          # #Selects the delivery metrics the user would want to see
+          # radioButtons(inputId = "del.met",
+          #              label = "Pick a Delivery Metric:",
+          #              choices = c("Total Number Delivered", "Doses Delivered by 100k")
+          # ),
+          
+          plotlyOutput("deliveryPlot"),
+          
+          dataTableOutput("del_table")
+          # 
+          # infoBoxOutput("del"),
+          # infoBoxOutput("alloc_del")
   ),
   
   
@@ -117,7 +128,7 @@ body <- dashboardBody(tabItems(
           
          
      
-         dataTableOutput("state_compare")
+          dataTableOutput("state_compare")
      
     
      
@@ -140,8 +151,8 @@ server <- function(input, output) {
   
   #Creates a subset of the delivery and administration data by state----------
   state_del_admin <- reactive({
-    req(input$state)
-    filter(covid.vac, State.Territory.Federal.Entity %in% input$state)
+    req(input$state_del)
+    filter(covid.vac, State.Territory.Federal.Entity %in% input$state_del)
   })
   
   
@@ -182,23 +193,47 @@ server <- function(input, output) {
      
 
      #create the time series plot
-     ggplot(state_alloc(), aes(x=Week.of.Allocations, y=First.Dose.Allocations)) +
-      geom_point(color = "blue") +
-      geom_line(group = 1) +
-      xlab("Month of Allocation") +
-      ylab("Number of First Dose Allocations") +
-      xlim(input$dates_alloc[1], input$dates_alloc[2]) +
-      ylim(0, max(state_alloc()$First.Dose.Allocations))
+     ggplotly(
+      ggplot(state_alloc(), aes(x=Week.of.Allocations, y=First.Dose.Allocations)) +
+        geom_point(color = "blue") +
+        geom_line(group = 1) +
+        xlab("Month of Allocation") +
+        ylab("Number of First Dose Allocations") +
+        xlim(input$dates_alloc[1], input$dates_alloc[2]) +
+        ylim(0, max(state_alloc()$First.Dose.Allocations))
+      )
      
    })
    
-   output$del <- renderInfoBox({
-     infoBox("Number of Vaccines Delivered To-Date")
+   
+   output$deliveryPlot <- renderPlotly({
+    
+     
+     ggplotly(
+       ggplot(covid.vac, aes(x = Total.Doses.Delivered, 
+                             fill = State.Territory.Federal.Entity)) +
+                              
+         geom_histogram()
+       
+     )
    })
    
-   output$alloc_del <- renderInfoBox({
-     infoBox("Percent Allocation Delivered")
+   output$del_table<- DT::renderDataTable({
+     
+     DT::datatable(data = state_del_admin() %>% 
+                     select(State.Territory.Federal.Entity,
+                            Total.Doses.Delivered,
+                            Doses.Delivered.per.100K),
+                   rownames = FALSE) 
    })
+   # 
+   # output$del <- renderInfoBox({
+   #   infoBox("Number of Vaccines Delivered To-Date")
+   # })
+   # 
+   # output$alloc_del <- renderInfoBox({
+   #   infoBox("Percent Allocation Delivered")
+   # })
    
    output$per_admin_state_1 <- renderInfoBox({
      
@@ -253,7 +288,8 @@ server <- function(input, output) {
      state_order <- factor(state_compare()$State.Territory, 
                            level = c(input$state_select[1], input$state_select[2]))
      
-     ggplot(state_compare(), aes(x = state_order,
+     ggplotly(
+       ggplot(state_compare(), aes(x = state_order,
                                  y = num_admin_compare,
                                  fill = State.Territory)) +
      geom_bar(stat = "identity")  +
@@ -262,6 +298,7 @@ server <- function(input, output) {
        
     #removes the legend from the plot
      theme(legend.position = "none")
+            )
        
 
 
