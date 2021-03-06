@@ -6,12 +6,12 @@ library(tidyverse)
 library(plotly)
 library(DT)
 library(scales) #helps to format the numbers in the value/info boxes
-#getting rid of scientific notation
+
+#gets rid of scientific notation
 options(scipen = 10L)
 
 
-
-#Loading in the relevant datasets & editing datasets for future use ---------------------------------
+#Data Loading and Pre-Proocessing------------------------------------------
 
 #Covid Vaccination data by state
 covid.vac <- read.csv("covidvaccines.csv", header = TRUE)
@@ -20,32 +20,47 @@ covid.vac <- read.csv("covidvaccines.csv", header = TRUE)
 pf.alloc <- read.csv("pfizervaccineallocation.csv") 
 
 #Editing the column names of the pf.alloc dataset
-colnames(pf.alloc) <- c("Jurisdiction", "Week.of.Allocations", "First.Dose.Allocations", "Second.Dose.Allocations")
+colnames(pf.alloc) <- c("Jurisdiction", "Week.of.Allocations", 
+                        "First.Dose.Allocations", "Second.Dose.Allocations")
 
-#using lubridate to change the date values for the week of allocation
+#using lubridate to change the date values in the pf.alloc dataset
 pf.alloc <- pf.alloc %>% 
   mutate(Week.of.Allocations = lubridate::mdy(Week.of.Allocations))
 
 
-#adding new column with normalized delivery amount to the covid.vac dataset
+#Steps for creating a normalized delivery amount column
+
+#step 1: create a variable for doses delivered per 100k
 num.del <- covid.vac$Doses.Delivered.per.100K
+
+#step 2: calculate the mean of doses delivered per 100k
 del.mean <- mean(covid.vac$Doses.Delivered.per.100K, na.rm = TRUE)
+
+#step 3: calculate the standard deviation of doses delivered per 100k
 del.sd <- sd(covid.vac$Doses.Delivered.per.100K, na.rm = TRUE)
+
+#step 4: normalize the data based on previous steps
 covid.vac$del_norm <- round(((num.del-del.mean)/del.sd), 2)
+
+#step 5: assigning data to categories, based on normalized value
 covid.vac$del_scale <- ifelse(covid.vac$del_norm < 0, "Below Average", "Above Average")
+
+#step 6: sorting the data according to the "del_scale" variable
 covid.vac <- covid.vac[order(covid.vac$del_scale),]
+
+#step 7: maintain the order of the dataset by creating a new factor variable
 covid.vac$State.Territory.Federal.Entity <- factor(covid.vac$State.Territory.Federal.Entity,
                                                    levels = covid.vac$State.Territory.Federal.Entity)
 
 
 
+
+# Application header & title ----------------------------------------------
 header <- dashboardHeader(title = "COVID-19 Vaccine Distribution Tracker",
                           titleWidth = 350
-
-    
-      
     )
   
+# Dashboard Sidebar ---------------------------------------------------
 sidebar <-   dashboardSidebar(
         sidebarMenu(
         id = "tabs",
@@ -57,7 +72,7 @@ sidebar <-   dashboardSidebar(
         )
 )
 
-
+# Dashboard body ----------------------------------------------
 body <- dashboardBody(tabItems(
   
   # Overview Page ----------------------------------------------
@@ -83,18 +98,14 @@ body <- dashboardBody(tabItems(
                          format = "yyyy-mm-dd",
                          separator = "-"),
           
-          #For the supplied state, display the % of vaccines delivered that are used
-  
-          # Input and Value Boxes ----------------------------------------------
+          #displays the amount of vaccine allocated to the selected state
           fluidRow(
             infoBoxOutput("allocation")
            ),
           
-          #creating a tabset panel to display the data table and the corresponding time series chart
+          #creates a tabset panel to display the data table and the corresponding time series chart
           tabsetPanel(type = "tabs",
                       tabPanel("Data Table", dataTableOutput(outputId = "state_table")),
-                      
-                      #timeseries plot of vaccination allocation over time
                       tabPanel("Vaccine Allocation Over Time",  plotlyOutput(outputId = "time.series"))
                       ),
           
@@ -103,16 +114,18 @@ body <- dashboardBody(tabItems(
   # Vaccine Delivery Page ----------------------------------------------
   tabItem("delivery",
           
-          #Selects the state to find information about (to be used to filter the data)
+          #selects the state to find information about (to be used to filter the data)
           selectInput(inputId = "state_del",
                       label = "Select a state or territory:",
                       choices = covid.vac$State.Territory.Federal.Entity),
           
+          #displays the total amount of vaccine delivery for selected state
           infoBoxOutput("tot_del"),
           
-          
+          #creates space between the info box and the rest of the vaccine delivery page
           br(), br(), br(), br(), br(),
     
+          #allows the user to select multiple states to select for the normalized delivery plot
           selectInput("state_del_compare",
                       "Pick A Few States to Compare:",
                       choices = covid.vac$State.Territory.Federal.Entity,
@@ -121,22 +134,24 @@ body <- dashboardBody(tabItems(
                       selected = c("Maryland", "Virginia", "Hawaii", "Connecticut", "Montana")),
          
                 
-
+          #creates the normalized delivery plot
           plotlyOutput("deliveryPlot")
           
 
   ),
   
-  
-  
+
   
   # Vaccine Administration Page ----------------------------------------------
   tabItem("admin",
-      
+          
+          #creates info box on % of vaccines administered that were delivered for first state selected
           infoBoxOutput("per_admin_state_1"),
           
+          #creates info box on % of vaccines administered that were delivered for second state selected
           infoBoxOutput("per_admin_state_2"),
           
+          #select two states to compare
           selectInput("state_select",
                       "Pick 2 States:",
                       choices = covid.vac$State.Territory.Federal.Entity,
@@ -144,10 +159,11 @@ body <- dashboardBody(tabItems(
                       selectize = TRUE,
                       selected = c("Maryland", "Virginia")),
           
+          #graph of vaccines administered 
           plotlyOutput("admin_dist"),
           
-         
-     
+          
+          #compares the total amount of vaccine distributed for states selected
           dataTableOutput("state_compare")
      
     
@@ -163,20 +179,20 @@ ui <- dashboardPage(header, sidebar, body)
 
 server <- function(input, output) { 
   
-  #Create a subset of the data filtering for state ---------------------------
+  #creates a subset of the vaccine allocation data filtered for a state ---------------------------
   state_alloc <- reactive({
     req(input$state)
     filter(pf.alloc, Jurisdiction %in% input$state)
   })
   
-  #Creates a subset of the delivery and administration data by state----------
+  #Creates a subset of the delivery and administration data by state------------
   state_del_admin <- reactive({
     req(input$state_del)
     filter(covid.vac, State.Territory.Federal.Entity %in% input$state_del)
   })
   
   
-  #creates data subset for comparing the number of vaccines delivered in 5 states
+  #creates data subset for comparing the number of vaccines delivered in several states-----
   state_del_comparison <- reactive({
     req(input$state_del_compare)
   
@@ -184,12 +200,10 @@ server <- function(input, output) {
   })
   
   
-
-  
-  #Used to create a separate dataset that summarizes data for 2 states
+  #creates separate dataset that summarizes data for 2 states----------------
   state_compare <- reactive({
     
-    #changing some of the column names for the covid.vac dataset
+    #changes some of the column names for the covid.vac dataset
     covid.vac <- covid.vac %>% 
       rename("State.Territory" = "State.Territory.Federal.Entity",
              "Total.Doses" = "Total.Doses.Administered.by.State.where.Administered",
@@ -202,39 +216,39 @@ server <- function(input, output) {
   })
   
   
-
+  #displays welcome message on the overview page-----------------------------
   output$welcome <- renderUI ({ HTML("Welcome to the COVID-19 Vaccine Distribution Tracker! 
                                      <br/> <br/> There are three different tabs that you can look at:
                                      Vaccine Allocation data (for the Pfizer Vaccine), Vaccine Delivery data, and
                                       Vaccine Administration data.
                                       <br/> <br/> Click on any tab to get started!")
                                       
-                                      
                                 })
   
-  
-   output$allocation <-
-    renderInfoBox({
+  #creates infoBox for allocation data------------------------------------------
+  output$allocation <- renderInfoBox({
       
       #sums the total number of vaccines received to-date by a jurisdiction
       alloc.sum <- sum(state_alloc()$First.Dose.Allocations)
       
-      #changing the formatting of the value in the info box
+      #changes the formatting of the value in the info box
       alloc.sum <- prettyNum(alloc.sum, big.mark = ",")
 
-      infoBox("Total Amount of Vaccine Allocated To-Date", value = alloc.sum, color = )
+      infoBox("Total Amount of Vaccine Allocated To-Date", value = alloc.sum, color = "green")
     })
    
-   #Display data table of vaccines allocation for the selected state-------------------------------------------
+   #displays data table of vaccines allocation for the selected state-------------------------------------------
    output$state_table <- DT::renderDataTable({
      DT::datatable(data = state_alloc(),
                    rownames = FALSE)
    })
    
+   
+   #displays a time series plot for the vaccine allocation over time---------------
    output$time.series <- renderPlotly({
      
 
-     #create the time series plot
+     #creates the time series plot----------------------------------
      ggplotly(
       ggplot(state_alloc(), aes(x=Week.of.Allocations, y=First.Dose.Allocations)) +
         geom_point(color = "blue") +
@@ -247,7 +261,7 @@ server <- function(input, output) {
      
    })
    
-   
+   #creates a diverging bar chart based on normalized delivery data-------------- 
    output$deliveryPlot <- renderPlotly({
     
       del_plot <- ggplotly(
@@ -264,17 +278,16 @@ server <- function(input, output) {
          
         ) 
       
+      #changes the name of the legend
       del_plot %>% 
         layout(legend = list(title= list(text= "<b> Delivery Amounts <b>")))
 
     
-       
-     
    })
    
  
     
-    #info box that delays the total number of vaccines delivered for the state selected
+    #displays the total number of vaccines delivered for the state selected-----------
      output$tot_del <- renderInfoBox({
        
        tot_del <- state_del_admin()$Total.Doses.Delivered
@@ -285,7 +298,7 @@ server <- function(input, output) {
       
         })
  
-   
+   #displays the % of delivered vaccines that were administered for state 1 --------
    output$per_admin_state_1 <- renderInfoBox({
      
      num_del <- sum(state_compare()[1,]$Total.Doses.Delivered)
@@ -298,6 +311,7 @@ server <- function(input, output) {
     
    })
    
+   #displays the % of delivered vaccines that were administered for state 2 --------
    output$per_admin_state_2 <- renderInfoBox({
      
      num_del <- sum(state_compare()[2,]$Total.Doses.Delivered)
@@ -311,7 +325,7 @@ server <- function(input, output) {
    })
    
    
-     
+   #displays a data table comparing two states vaccine administration info-------  
    output$state_compare<- DT::renderDataTable({
     
      DT::datatable(data = state_compare() %>% 
@@ -322,20 +336,23 @@ server <- function(input, output) {
                    rownames = FALSE)
    })
    
+   #creates plot of vaccine administration information for two states-----------
    output$admin_dist <- renderPlotly({
 
      #filters for total administration data for the first state selected
      num_admin_state_1 <- state_compare() %>%
        filter(State.Territory == input$state_select[1]) %>%
        select(Total.Doses)
-
+      
+     #filters for total administration data for the second state selected
      num_admin_state_2 <- state_compare() %>%
        filter(State.Territory == input$state_select[2]) %>%
        select(Total.Doses)
 
+    #creates vector of two states' vaccine administration data
      num_admin_compare <- c(num_admin_state_1, num_admin_state_2)
     
-     #creating a factor variable to fix the order states display on the x-axis
+     #creates a factor variable to fix the order states display on the x-axis
      state_order <- factor(state_compare()$State.Territory, 
                            level = c(input$state_select[1], input$state_select[2]))
      
