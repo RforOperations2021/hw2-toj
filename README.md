@@ -1,6 +1,6 @@
 # Homework Two: COVID-19 Vaccine Distribution Tracker
 
-This RShiny App lets you explore what how many Pfizer vaccines were allocated to each US state or territory, how many vaccines were delivered to each state or territory, and how many vaccines were actually administered in each state, as of March 1st, 2021.
+This RShiny App lets you explore what how many Pfizer vaccines were allocated to each US state or territory, how many vaccines were delivered to each state or territory, and how many vaccines were actually administered in each state or territory, as of March 1st, 2021.
 
 
 
