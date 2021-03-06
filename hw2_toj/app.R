@@ -234,7 +234,8 @@ server <- function(input, output) {
       #changes the formatting of the value in the info box
       alloc.sum <- prettyNum(alloc.sum, big.mark = ",")
 
-      infoBox("Total Amount of Vaccine Allocated To-Date", value = alloc.sum, color = "green")
+      infoBox(HTML(paste("Total Number of Vaccines", br(), "Allocated To-Date for", input$state)),
+                      value = alloc.sum, color = "green")
     })
    
    #displays data table of vaccines allocation for the selected state-------------------------------------------
