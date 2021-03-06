@@ -28,11 +28,11 @@ pf.alloc <- pf.alloc %>%
 
 
 #adding new column with normalized delivery amount to the covid.vac dataset
-num.del <- covid.vac$Total.Doses.Delivered
-del.mean <- mean(covid.vac$Total.Doses.Delivered)
-del.sd <- sd(covid.vac$Total.Doses.Delivered)
+num.del <- covid.vac$Doses.Delivered.per.100K
+del.mean <- mean(covid.vac$Doses.Delivered.per.100K, na.rm = TRUE)
+del.sd <- sd(covid.vac$Doses.Delivered.per.100K, na.rm = TRUE)
 covid.vac$del_norm <- round(((num.del-del.mean)/del.sd), 2)
-covid.vac$del_scale <- ifelse(covid.vac$del_norm < 0, "below", "above")
+covid.vac$del_scale <- ifelse(covid.vac$del_norm < 0, "Below Average", "Above Average")
 covid.vac <- covid.vac[order(covid.vac$del_scale),]
 covid.vac$State.Territory.Federal.Entity <- factor(covid.vac$State.Territory.Federal.Entity,
                                                    levels = covid.vac$State.Territory.Federal.Entity)
@@ -118,7 +118,7 @@ body <- dashboardBody(tabItems(
                       choices = covid.vac$State.Territory.Federal.Entity,
                       multiple = TRUE,
                       selectize = TRUE,
-                      selected = c("Maryland", "Virginia", "Ohio", "Iowa", "Michigan")),
+                      selected = c("Maryland", "Virginia", "Hawaii", "Connecticut", "Montana")),
          
                 
 
@@ -184,14 +184,7 @@ server <- function(input, output) {
   })
   
   
-  # output$state_del_table <- DT::renderDataTable({
-  #   DT::datatable(data = state_del_comparison() %>% 
-  #                   select("State.Territory.Federal.Entity",
-  #                          "Total.Doses.Delivered",
-  #                          "del_norm",
-  #                          "del_scale"),
-  #                 rownames = FALSE)
-  # })
+
   
   #Used to create a separate dataset that summarizes data for 2 states
   state_compare <- reactive({
@@ -257,24 +250,22 @@ server <- function(input, output) {
    
    output$deliveryPlot <- renderPlotly({
     
-     # ggplotly(
+      del_plot <- ggplotly(
 
        ggplot(state_del_comparison(), aes(x = State.Territory.Federal.Entity,
                                           y = del_norm)) +
          geom_bar(stat = "identity", aes(fill=del_scale), width = .5) +
-         scale_fill_manual(name="Delivery Amounts", 
-                          labels = c("Above Average", "Below Average"),
-                          values = c("above"="#00ba38", "below"="#f8766d")) +
-         labs(title ="Vaccine Delivery Comparisons",
-              subtitle = "Are the selected states receving an above or below average amount of vaccine deliveries?",
-                     fill = "Vaccines Delivered") +
+         scale_fill_manual(labels = c("Above Average", "Below Average"),
+                          values = c("Above Average"="#00ba38", "Below Average"="#f8766d")) +
+         labs(title = "Are the selected states receiving an above or below average amount of vaccine deliveries?") +
          xlab("State/Territory") +
          ylab("Normalized Amount of Deliveries") + 
           coord_flip()
          
-         
-                
-     # )
+        ) 
+      
+      del_plot %>% 
+        layout(legend = list(title= list(text= "<b> Delivery Amounts <b>")))
 
     
        
@@ -288,8 +279,11 @@ server <- function(input, output) {
        
        tot_del <- state_del_admin()$Total.Doses.Delivered
        tot_del <- prettyNum(tot_del, big.mark = ",")
-       infoBox("Total Number of Vaccines Delivered To-Date", value = tot_del)
-      })
+       infoBox(HTML(paste("Total Number of Vaccines", br(), "Delivered To-Date in", input$state_del)),
+                          value = tot_del)
+     
+      
+        })
  
    
    output$per_admin_state_1 <- renderInfoBox({
