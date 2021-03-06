@@ -11,7 +11,7 @@ options(scipen = 10L)
 
 
 
-#Loading in the relevant datasets ---------------------------------
+#Loading in the relevant datasets & editing datasets for future use ---------------------------------
 
 #Covid Vaccination data by state
 covid.vac <- read.csv("covidvaccines.csv", header = TRUE)
@@ -26,6 +26,16 @@ colnames(pf.alloc) <- c("Jurisdiction", "Week.of.Allocations", "First.Dose.Alloc
 pf.alloc <- pf.alloc %>% 
   mutate(Week.of.Allocations = lubridate::mdy(Week.of.Allocations))
 
+
+#adding new column with normalized delivery amount to the covid.vac dataset
+num.del <- covid.vac$Total.Doses.Delivered
+del.mean <- mean(covid.vac$Total.Doses.Delivered)
+del.sd <- sd(covid.vac$Total.Doses.Delivered)
+covid.vac$del_norm <- round(((num.del-del.mean)/del.sd), 2)
+covid.vac$del_scale <- ifelse(covid.vac$del_norm < 0, "below", "above")
+covid.vac <- covid.vac[order(covid.vac$del_scale),]
+covid.vac$State.Territory.Federal.Entity <- factor(covid.vac$State.Territory.Federal.Entity,
+                                                   levels = covid.vac$State.Territory.Federal.Entity)
 
 
 
@@ -93,7 +103,6 @@ body <- dashboardBody(tabItems(
   # Vaccine Delivery Page ----------------------------------------------
   tabItem("delivery",
           
-         
           #Selects the state to find information about (to be used to filter the data)
           selectInput(inputId = "state_del",
                       label = "Select a state or territory:",
@@ -102,10 +111,20 @@ body <- dashboardBody(tabItems(
           infoBoxOutput("tot_del"),
           
           
-          #plotlyOutput("deliveryPlot")
-          
-          # dataTableOutput("del_table")
+          br(), br(), br(), br(), br(),
+    
+          selectInput("state_del_compare",
+                      "Pick A Few States to Compare:",
+                      choices = covid.vac$State.Territory.Federal.Entity,
+                      multiple = TRUE,
+                      selectize = TRUE,
+                      selected = c("Maryland", "Virginia", "Ohio", "Iowa", "Michigan")),
          
+                
+
+          plotlyOutput("deliveryPlot")
+          
+
   ),
   
   
@@ -156,6 +175,23 @@ server <- function(input, output) {
     filter(covid.vac, State.Territory.Federal.Entity %in% input$state_del)
   })
   
+  
+  #creates data subset for comparing the number of vaccines delivered in 5 states
+  state_del_comparison <- reactive({
+    req(input$state_del_compare)
+  
+    filter(covid.vac, State.Territory.Federal.Entity %in% input$state_del_compare)
+  })
+  
+  
+  # output$state_del_table <- DT::renderDataTable({
+  #   DT::datatable(data = state_del_comparison() %>% 
+  #                   select("State.Territory.Federal.Entity",
+  #                          "Total.Doses.Delivered",
+  #                          "del_norm",
+  #                          "del_scale"),
+  #                 rownames = FALSE)
+  # })
   
   #Used to create a separate dataset that summarizes data for 2 states
   state_compare <- reactive({
@@ -221,26 +257,31 @@ server <- function(input, output) {
    
    output$deliveryPlot <- renderPlotly({
     
-     #mean number of total deliveries
-     del.mean <- mean(covid.vac$Total.Doses.Delivered)
-     
-     ggplotly(
-       ggplot(covid.vac, aes(x = Total.Doses.Delivered, 
-                             fill = State.Territory.Federal.Entity)) +
-                              
-         geom_histogram()
+     # ggplotly(
+
+       ggplot(state_del_comparison(), aes(x = State.Territory.Federal.Entity,
+                                          y = del_norm)) +
+         geom_bar(stat = "identity", aes(fill=del_scale), width = .5) +
+         scale_fill_manual(name="Delivery Amounts", 
+                          labels = c("Above Average", "Below Average"),
+                          values = c("above"="#00ba38", "below"="#f8766d")) +
+         labs(title ="Vaccine Delivery Comparisons",
+              subtitle = "Are the selected states receving an above or below average amount of vaccine deliveries?",
+                     fill = "Vaccines Delivered") +
+         xlab("State/Territory") +
+         ylab("Normalized Amount of Deliveries") + 
+          coord_flip()
+         
+         
+                
+     # )
+
+    
        
-     )
+     
    })
    
-   output$del_table<- DT::renderDataTable({
-     
-     DT::datatable(data = state_del_admin() %>% 
-                     select(State.Territory.Federal.Entity,
-                            Total.Doses.Delivered,
-                            Doses.Delivered.per.100K),
-                   rownames = FALSE) 
-   })
+ 
     
     #info box that delays the total number of vaccines delivered for the state selected
      output$tot_del <- renderInfoBox({
